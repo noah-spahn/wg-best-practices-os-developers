@@ -974,6 +974,22 @@ Alternatives to `-no-strict-overflow` are the `-fwrapv` and `-ftrapv` options. W
 
 Since GCC 8.5 `-no-strict-overflow` is equivalent to `-fwrapv -fwrapv-pointer` while GCC documentation recommends `-fsanitize=signed-integer-overflow` for diagnosing signed integer overflow issues during testing and debugging. In prior GCC versions `-no-strict-overflow` does not fully enforce two's complement on signed integers, allowing for additional optimizations[^Wang2012]. In Clang, `-no-strict-overflow` option is considered a synonym for `-fwrapv`.
 
+#### When not to use?
+
+Standards-compliant C and C++ should not require any particular behavior for signed arithmetic overflows. Code which requires a specific behavior, such as a two's-complement representation becomes less portable in a very subtle way. Consequently, strictly standard-compliant C and C++ should not need the flags described in this section, and we recommend striving to write code that does not assume specific arithmetic overflow behavior. However, mistakes are inevitable and consequently we believe most code will benefit from `-fno-strict-overflow` or its alternatives.
+
+#### Performance implications
+
+Each of these options gives the compiler less freedom for optimizing the resulting machine code compared to the default `-fstrict-overflow` behavior. For example, under `-fstrict-overflow` semantics, expressions such as `i + 10 > i` will always be true for signed `i`, allowing the expression to be replaced at compile time with a constant value. As discussed above, if such expressions occur in condition checks the compiler may optimize away entire code paths when the expression can be evaluated at compile time. In contrast, under `-fno-strict-overflow` those expression must be evaluated at run-time in case of overflows that wrap around the value, thus preventing some optimizations. On the other hand, treating overflows as undefined behavior will only yield optimal behavior if the programmer can be certain the program will never inputs that cause overflows.
+
+The `-ftrapv` option requires the compiler to emit checks to detect and trap overflows on signed integers unless it has compile time information of the value range to prove the operation doesn't overflow. As a result, `-ftrapv` is expected to have the largest performance impact out the options covered in this section.
+
+### Other considerations
+
+During link-time optimization (LTO), different compilation units may have been built with different arithmetic overflow behavior. The `-fno-strict-overflow`, `-fwrapv`, `-fno-trapv` and `-fno-strict-aliasing` are passed through to the link stage and take precedece over `-fstrict-overflow` semantics for compilation units with conflicting behavior[^gcc-flto]. In practice this means that software where certain modules benefit from `-fstrict-overflow` for perormance, but others use `-fno-strict-overflow` to improve security, may loose out on the performance benefits with `-fno-strict-overflow` taking precedence during LTO.
+
+[^gcc-flto]: GCC team, [Options That Control Optimization: -flto](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-flto), GCC Manual, 2024-05-07.
+
 ---
 
 ### Do not assume strict aliasing
